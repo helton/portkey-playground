@@ -1,0 +1,39 @@
+version: '3'
+
+services:
+  mitmproxy:
+    image: mitmproxy/mitmproxy
+    command: mitmweb --web-host 0.0.0.0 --listen-port 8090 --web-port 8091 --mode regular -v
+    container_name: mitmproxy
+    ports:
+      - "8090:8090" # Proxy port
+      - "8091:8091" # Web interface port
+    volumes:
+      - ./mitmproxy/certs:/home/mitmproxy/.mitmproxy:rw # Mount the mitmproxy certs
+    networks:
+      - mynetwork
+
+  portkey:
+    build:
+      context: portkey/
+      dockerfile: Dockerfile
+    container_name: portkey
+    ports:
+      - "8787:8787"
+    environment:
+      - HTTP_PROXY=http://mitmproxy:8090
+      - HTTPS_PROXY=http://mitmproxy:8090
+      - NO_PROXY=localhost,127.0.0.1
+      - NODE_DEBUG=undici
+      - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/mitmproxy/mitmproxy-ca.pem
+      #- NODE_TLS_REJECT_UNAUTHORIZED=0
+    volumes:
+      - ./mitmproxy/certs:/etc/ssl/certs/mitmproxy:r
+    depends_on:
+      - mitmproxy
+    networks:
+      - mynetwork
+
+networks:
+  mynetwork:
+    driver: bridge
